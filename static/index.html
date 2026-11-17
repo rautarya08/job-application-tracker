@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Tracker</title>
+<style>
+  :root {
+    --ink: #17212b; --muted: #5d6b79; --paper: #eceff2; --panel: #ffffff; --line: #d3dae1;
+    --accent: #0f6b66; --accent-soft: #d9ece9; --warn: #b4531a;
+    --s-Saved: #8794a1; --s-Applied: #2f6fb3; --s-Screening: #7a5bb0;
+    --s-Interview: #0f6b66; --s-Offer: #3f8a2e; --s-Rejected: #a8473f;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink);
+         font: 15px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between;
+           padding: 20px 28px; background: var(--ink); color: #fff; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.01em; }
+  header .actions { display: flex; gap: 10px; }
+  button, select, input, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; border: 1px solid var(--line); background: var(--panel); border-radius: 6px; padding: 7px 14px; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  header button { background: transparent; color: #fff; border-color: #ffffff55; }
+  header button.primary { background: var(--accent); border-color: var(--accent); }
+  :focus-visible { outline: 3px solid #f2b84b; outline-offset: 2px; }
+  main { padding: 24px 28px 48px; max-width: 1500px; margin: 0 auto; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; }
+  .stat b { display: block; font-size: 26px; line-height: 1.1; }
+  .stat span { color: var(--muted); font-size: 13px; }
+
+  .board { display: grid; grid-template-columns: repeat(6, minmax(210px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+  .col { background: #e1e6eb; border-radius: 6px; padding: 10px; min-height: 140px; }
+  .col h2 { font-size: 14px; margin: 2px 4px 10px; display: flex; justify-content: space-between;
+            border-left: 4px solid var(--c); padding-left: 8px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; margin-bottom: 8px; }
+  .card h3 { margin: 0; font-size: 15px; }
+  .card .role { color: var(--muted); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+  .chip { background: var(--accent-soft); color: #0b4f4b; border-radius: 4px; padding: 0 6px; font-size: 12px; }
+  .score { font-weight: 650; font-size: 13px; }
+  .row { display: flex; gap: 6px; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .row select { max-width: 120px; padding: 3px 4px; border-radius: 4px; border: 1px solid var(--line); background: #fff; }
+  .row button { padding: 2px 8px; font-size: 13px; }
+  a { color: var(--accent); }
+
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 28px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px 18px; }
+  .panel h2 { margin: 0 0 10px; font-size: 16px; }
+  .bar { display: grid; grid-template-columns: 130px 1fr 70px; gap: 8px; align-items: center; margin: 6px 0; font-size: 13px; }
+  .bar i { display: block; height: 10px; background: var(--accent); border-radius: 2px; }
+  .bar.missing i { background: var(--warn); }
+  .weeks { display: flex; align-items: end; gap: 6px; height: 90px; }
+  .weeks div { flex: 1; background: var(--accent); min-height: 2px; border-radius: 2px 2px 0 0; position: relative; }
+  .weeks div span { position: absolute; top: -18px; width: 100%; text-align: center; font-size: 12px; }
+  .empty { color: var(--muted); font-size: 14px; }
+
+  dialog { border: 1px solid var(--line); border-radius: 8px; padding: 22px; width: min(560px, 94vw); }
+  dialog::backdrop { background: #17212b88; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 3px; }
+  input, select.f, textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+  textarea { min-height: 130px; resize: vertical; }
+  .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  #error { color: #a8473f; font-size: 14px; min-height: 20px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Job Tracker</h1>
+  <div class="actions">
+    <button id="cvBtn">My CV text</button>
+    <button id="addBtn" class="primary">Add application</button>
+  </div>
+</header>
+<main>
+  <section class="stats" id="stats" aria-label="Summary"></section>
+  <section class="board" id="board" aria-label="Applications by status"></section>
+  <section class="panels">
+    <div class="panel"><h2>Skills in saved postings</h2><div id="skills"></div></div>
+    <div class="panel"><h2>Needs a follow-up</h2><div id="followups"></div></div>
+    <div class="panel"><h2>Applications sent per week</h2><div id="weeks"></div></div>
+  </section>
+</main>
+
+<dialog id="addDlg">
+  <form method="dialog" id="addForm">
+    <h2 style="margin:0">Add application</h2>
+    <label for="company">Company</label><input id="company" required>
+    <label for="role">Role</label><input id="role" required>
+    <label for="location">Location</label><input id="location">
+    <label for="url">Job posting link</label><input id="url" type="url">
+    <label for="status">Status</label><select id="status" class="f"></select>
+    <label for="posting">Paste the job description</label><textarea id="posting"></textarea>
+    <div id="error" role="alert"></div>
+    <div class="dlg-actions">
+      <button type="button" id="addCancel">Cancel</button>
+      <button type="submit" class="primary">Save application</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="cvDlg">
+  <form method="dialog" id="cvForm">
+    <h2 style="margin:0">My CV text</h2>
+    <p class="empty">Paste your CV as plain text. Match scores and the skills comparison use it.</p>
+    <textarea id="cvText" style="min-height:260px"></textarea>
+    <div class="dlg-actions">
+      <button type="button" id="cvCancel">Cancel</button>
+      <button type="submit" class="primary">Save CV</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const STATUSES = ["Saved", "Applied", "Screening", "Interview", "Offer", "Rejected"];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function api(path, opts = {}) {
+  const res = await fetch("/api" + path, { headers: { "Content-Type": "application/json" }, ...opts });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const detail = Array.isArray(body.detail) ? body.detail.map((d) => d.msg).join("; ") : body.detail;
+    throw new Error(detail || res.statusText);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+function card(a) {
+  const chips = a.skills.slice(0, 5).map((s) => `<span class="chip">${esc(s)}</span>`).join("");
+  const score = a.match_score == null ? "" : `<span class="score">${a.match_score}% match</span>`;
+  const link = a.url ? ` <a href="${esc(a.url)}" target="_blank" rel="noopener">posting</a>` : "";
+  const opts = STATUSES.map((s) => `<option ${s === a.status ? "selected" : ""}>${s}</option>`).join("");
+  return `<article class="card">
+    <h3>${esc(a.company)}</h3>
+    <div class="role">${esc(a.role)}${a.location ? " · " + esc(a.location) : ""}${link}</div>
+    <div class="chips">${chips}</div>
+    ${score}
+    <div class="row">
+      <select aria-label="Status for ${esc(a.company)}" data-move="${a.id}">${opts}</select>
+      <button data-del="${a.id}" aria-label="Delete ${esc(a.company)}">Delete</button>
+    </div>
+  </article>`;
+}
+
+async function refresh() {
+  const [apps, stats, gap, due] = await Promise.all([
+    api("/applications"), api("/stats"), api("/skills-gap"), api("/follow-ups"),
+  ]);
+
+  $("stats").innerHTML = [
+    [stats.total, "Total tracked"], [stats.submitted, "Applications sent"],
+    [stats.response_rate == null ? "–" : stats.response_rate + "%", "Response rate"],
+    [stats.avg_days_to_response == null ? "–" : stats.avg_days_to_response, "Avg days to reply"],
+  ].map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join("");
+
+  $("board").innerHTML = STATUSES.map((s) => {
+    const items = apps.filter((a) => a.status === s);
+    return `<div class="col" style="--c:var(--s-${s})"><h2>${s}<span>${items.length}</span></h2>${items.map(card).join("")}</div>`;
+  }).join("");
+
+  const max = Math.max(1, ...gap.map((g) => g.postings));
+  $("skills").innerHTML = gap.length ? gap.map((g) =>
+    `<div class="bar ${g.on_cv ? "" : "missing"}"><span>${esc(g.skill)}</span>
+     <i style="width:${(g.postings / max) * 100}%"></i><span>${g.on_cv ? "on CV" : "not on CV"}</span></div>`).join("")
+    : `<p class="empty">Add an application with a pasted job description to see which skills employers ask for most.</p>`;
+
+  $("followups").innerHTML = due.length ? due.map((a) =>
+    `<p><b>${esc(a.company)}</b> · ${esc(a.role)}<br><span class="empty">No update since ${a.last_update}</span></p>`).join("")
+    : `<p class="empty">Nothing waiting. Applications with no update for 7 days show up here.</p>`;
+
+  const wmax = Math.max(1, ...stats.weekly.map((w) => w.count));
+  $("weeks").innerHTML = `<div class="weeks">${stats.weekly.map((w) =>
+    `<div title="Week of ${w.week_start}" style="height:${(w.count / wmax) * 100}%"><span>${w.count}</span></div>`).join("")}</div>`;
+}
+
+$("status").innerHTML = STATUSES.map((s) => `<option>${s}</option>`).join("");
+
+$("addBtn").onclick = () => { $("error").textContent = ""; $("addDlg").showModal(); };
+$("addCancel").onclick = () => $("addDlg").close();
+$("addForm").onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api("/applications", { method: "POST", body: JSON.stringify({
+      company: $("company").value, role: $("role").value, location: $("location").value || null,
+      url: $("url").value || null, status: $("status").value, posting_text: $("posting").value,
+    }) });
+    $("addForm").reset();
+    $("addDlg").close();
+    refresh();
+  } catch (err) { $("error").textContent = err.message; }
+};
+
+$("cvBtn").onclick = async () => { $("cvText").value = (await api("/cv")).text; $("cvDlg").showModal(); };
+$("cvCancel").onclick = () => $("cvDlg").close();
+$("cvForm").onsubmit = async (e) => {
+  e.preventDefault();
+  await api("/cv", { method: "PUT", body: JSON.stringify({ text: $("cvText").value }) });
+  $("cvDlg").close();
+  refresh();
+};
+
+$("board").addEventListener("change", async (e) => {
+  const id = e.target.dataset.move;
+  if (!id) return;
+  await api(`/applications/${id}/status`, { method: "PATCH", body: JSON.stringify({ status: e.target.value }) });
+  refresh();
+});
+$("board").addEventListener("click", async (e) => {
+  const id = e.target.dataset.del;
+  if (id && confirm("Delete this application?")) { await api("/applications/" + id, { method: "DELETE" }); refresh(); }
+});
+
+refresh();
+</script>
+</body>
+</html>
